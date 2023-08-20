@@ -58,3 +58,8 @@ impl alacritty_config::SerdeReplace for CursorShapeShim {
         Ok(())
     }
 }
+
+pub trait HandlerExt: vte::ansi::Handler {
+    /// Reset and clear all.
+    fn reset_and_clear(&mut self) {}
+}

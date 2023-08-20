@@ -163,6 +163,9 @@ pub enum Action {
     /// Clear the display buffer(s) to remove history.
     ClearHistory,
 
+    /// Reset the terminal and clear all.
+    ResetAndClear,
+
     /// Hide the Alacritty window.
     Hide,
 

@@ -10,7 +10,8 @@ use unicode_width::UnicodeWidthChar;
 use vte::ansi::{Hyperlink as VteHyperlink, Rgb as VteRgb};
 
 use crate::ansi::{
-    self, Attr, CharsetIndex, Color, CursorShape, CursorStyle, Handler, NamedColor, StandardCharset,
+    self, Attr, CharsetIndex, ClearMode, Color, CursorShape, CursorStyle, Handler, HandlerExt,
+    NamedColor, StandardCharset,
 };
 use crate::config::{Config, Osc52, Terminal};
 use crate::event::{Event, EventListener};
@@ -976,6 +977,61 @@ impl<T> Dimensions for Term<T> {
     #[inline]
     fn total_lines(&self) -> usize {
         self.grid.total_lines()
+    }
+}
+
+impl<T: EventListener> HandlerExt for Term<T> {
+    /// Reset and clear all.
+    #[inline]
+    fn reset_and_clear(&mut self) {
+        let saved_line = self.grid.cursor.point.line;
+        // debug!("saved_line1: {}", saved_line.0);
+        let saved_column = self.grid.cursor.point.column;
+        // debug!("saved_column1: {}", saved_column.0);
+        let origin_line = Line(0);
+        let screen_lines = self.screen_lines();
+
+        // reset
+        if self.mode.contains(TermMode::ALT_SCREEN) {
+            mem::swap(&mut self.grid, &mut self.inactive_grid);
+        }
+        self.active_charset = Default::default();
+        self.cursor_style = None;
+        self.tabs = TabStops::new(self.columns());
+        self.title_stack = Vec::new();
+        self.title = None;
+        self.selection = None;
+        // Preserve vi mode across resets.
+        self.mode &= TermMode::VI;
+        self.mode.insert(TermMode::default());
+
+        let mut lines = cmp::min(screen_lines - origin_line.0 as usize, saved_line.0 as usize);
+        if lines > 0 && self.scroll_region.contains(&origin_line) {
+            trace!("Scrolling up relative: origin_line={}, lines={}", origin_line, lines);
+
+            lines = cmp::min(lines, (self.scroll_region.end - self.scroll_region.start).0 as usize);
+
+            let region = origin_line..self.scroll_region.end;
+
+            // Scroll selection.
+            self.selection =
+                self.selection.take().and_then(|s| s.rotate(self, &region, lines as i32));
+
+            self.grid.scroll_up(&region, lines);
+
+            // Scroll vi mode cursor.
+            let viewport_top = Line(-(self.grid.display_offset() as i32));
+            let top = if region.start == 0 { viewport_top } else { region.start };
+            let line = &mut self.vi_mode_cursor.point.line;
+            if (top <= *line) && region.end > *line {
+                *line = cmp::max(*line - lines, top);
+            }
+        }
+
+        self.goto(0, saved_column.0 as usize);
+
+        self.clear_screen(ClearMode::Saved);
+        self.mark_fully_damaged();
     }
 }
 

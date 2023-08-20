@@ -29,7 +29,7 @@ use winit::platform::macos::{EventLoopWindowTargetExtMacOS, OptionAsAlt};
 use winit::platform::modifier_supplement::KeyEventExtModifierSupplement;
 use winit::window::CursorIcon;
 
-use alacritty_terminal::ansi::{ClearMode, Handler};
+use alacritty_terminal::ansi::{ClearMode, Handler, HandlerExt};
 use alacritty_terminal::event::EventListener;
 use alacritty_terminal::grid::{Dimensions, Scroll};
 use alacritty_terminal::index::{Boundary, Column, Direction, Point, Side};
@@ -362,6 +362,10 @@ impl<T: EventListener> Execute<T> for Action {
                 ctx.mark_dirty();
             },
             Action::ClearHistory => ctx.terminal_mut().clear_screen(ClearMode::Saved),
+            Action::ResetAndClear => {
+            ctx.terminal_mut().reset_and_clear();
+            ctx.mark_dirty();
+            },
             Action::ClearLogNotice => ctx.pop_message(),
             Action::SpawnNewInstance => ctx.spawn_new_instance(),
             Action::CreateNewWindow => ctx.create_new_window(),
